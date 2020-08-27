@@ -18,6 +18,7 @@ namespace Plugin.FirebaseAuth
         IUserMetadata Metadata { get; }
         Task DeleteAsync();
         Task<string> GetIdTokenAsync(bool forceRefresh);
+        Task<IDictionary<string, object>> GetClaimsAsync(bool forceRefresh);
         Task<IAuthResult> LinkWithCredentialAsync(IAuthCredential credential);
         Task<IAuthResult> ReauthenticateAndRetrieveDataAsync(IAuthCredential credential);
         Task ReloadAsync();

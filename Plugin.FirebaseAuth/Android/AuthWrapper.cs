@@ -119,8 +119,8 @@ namespace Plugin.FirebaseAuth
         {
             try
             {
-                var result = await _auth.FetchProvidersForEmailAsync(email).ConfigureAwait(false);
-                return result.Providers.ToArray();
+                var result = await _auth.FetchSignInMethodsForEmail(email).AsAsync<ISignInMethodQueryResult>().ConfigureAwait(false);
+                return result.SignInMethods.ToArray();
             }
             catch (FirebaseException e)
             {

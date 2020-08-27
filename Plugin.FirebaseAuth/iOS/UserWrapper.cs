@@ -65,6 +65,55 @@ namespace Plugin.FirebaseAuth
             }
         }
 
+        private object ConvertProfileValue(NSObject profileValue)
+        {
+            if (profileValue == null)
+                return null;
+
+            switch (profileValue)
+            {
+                case NSNumber number:
+                    return number.BoolValue;
+                case NSString @string:
+                    return @string.ToString();
+                case NSArray array:
+                    {
+                        var list = new List<object>();
+                        for (nuint i = 0; i < array.Count; i++)
+                        {
+                            list.Add(ConvertProfileValue(array.GetItem<NSObject>(i)));
+                        }
+                        return list;
+                    }
+                case NSDictionary dictionary:
+                    {
+                        var dict = new Dictionary<string, object>();
+                        foreach (var (key, value) in dictionary)
+                        {
+                            dict.Add(key.ToString(), ConvertProfileValue(value));
+                        }
+                        return dict;
+                    }
+                case NSNull @null:
+                    return null;
+                default:
+                    return profileValue;
+            }
+        }
+
+        public async Task<IDictionary<string, object>> GetClaimsAsync(bool forceRefresh)
+        {
+            try
+            {
+                var result = await _user.GetIdTokenResultAsync(forceRefresh).ConfigureAwait(false);
+                return ConvertProfileValue(result.Claims) as IDictionary<string, object>;
+            }
+            catch (NSErrorException e)
+            {
+                throw ExceptionMapper.Map(e);
+            }
+        }
+
         public async Task<IAuthResult> LinkWithCredentialAsync(IAuthCredential credential)
         {
             try

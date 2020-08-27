@@ -4,6 +4,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Firebase.Auth;
 using Firebase;
+using Android.Gms.Extensions;
+using Android.Runtime;
+using Android.Util;
 
 namespace Plugin.FirebaseAuth
 {
@@ -57,8 +60,90 @@ namespace Plugin.FirebaseAuth
         {
             try
             {
-                var result = await _user.GetIdTokenAsync(forceRefresh).ConfigureAwait(false);
+                var result = await _user.GetIdToken(forceRefresh).AsAsync<GetTokenResult>().ConfigureAwait(false);
                 return result.Token;
+            }
+            catch (FirebaseException e)
+            {
+                throw ExceptionMapper.Map(e);
+            }
+        }
+
+        private object ConvertClaimsValue(Java.Lang.Object profileValue)
+        {
+            if (profileValue == null)
+                return null;
+
+            switch (profileValue)
+            {
+                case Java.Lang.Boolean @boolean:
+                    return (bool)@boolean;
+                case Java.Lang.Short @short:
+                    return (short)@short;
+                case Java.Lang.Integer @integer:
+                    return (int)@integer;
+                case Java.Lang.Long @long:
+                    return (long)@long;
+                case Java.Lang.Float @float:
+                    return (float)@float;
+                case Java.Lang.Double @double:
+                    return (double)@double;
+                case Java.Lang.Number @number:
+                    return (double)@number;
+                case Java.Lang.String @string:
+                    return profileValue.ToString();
+                case JavaList javaList:
+                    {
+                        var list = new List<object>();
+                        foreach (var data in javaList)
+                        {
+                            var value = data;
+                            if (value is Java.Lang.Object javaObject)
+                            {
+                                value = ConvertClaimsValue(javaObject);
+                            }
+                            list.Add(value);
+                        }
+                        return list;
+                    }
+                case JavaDictionary javaDictionary:
+                    {
+                        var dict = new Dictionary<string, object>();
+                        foreach (var key in javaDictionary.Keys)
+                        {
+                            var value = javaDictionary[key];
+                            if (value is Java.Lang.Object javaObject)
+                            {
+                                value = ConvertClaimsValue(javaObject);
+                            }
+                            dict[key.ToString()] = value;
+                        }
+                        return dict;
+                    }
+                case ArrayMap arrayMap:
+                    {
+                        var dict = new Dictionary<string, object>();
+                        foreach (var key in arrayMap.KeySet())
+                        {
+                            dict[key.ToString()] = ConvertClaimsValue(arrayMap.Get(new Java.Lang.String(key.ToString())));
+                        }
+                        return dict;
+                    }
+                default:
+                    if (profileValue.ToString() == "null")
+                    {
+                        return null;
+                    }
+                    return profileValue;
+            }
+        }
+
+        public async Task<IDictionary<string, object>> GetClaimsAsync(bool forceRefresh)
+        {
+            try
+            {
+                var result = await _user.GetIdToken(forceRefresh).AsAsync<GetTokenResult>().ConfigureAwait(false);
+                return result.Claims.ToDictionary(x => x.Key, elementSelector: x => ConvertClaimsValue(x.Value));
             }
             catch (FirebaseException e)
             {
